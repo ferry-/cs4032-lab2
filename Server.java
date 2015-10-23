@@ -11,7 +11,7 @@ import java.lang.Runnable;
 
 public class Server {
 	protected static int RESP_TIMEOUT = 5000;
-	protected static String STUDENT_ID = "abcd";
+	protected static String STUDENT_ID = "ed9d356567882c76a5e1ab4e224a3c50d80fb962838dc52afd5e5e20a7f5817e";
 	
 	public abstract class Response {
 		public abstract void response(Socket sock, InputStream in, OutputStream out) throws IOException;
