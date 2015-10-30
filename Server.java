@@ -29,6 +29,7 @@ public class Server {
 			System.out.println("HELO from " + sock);
 			//read message
 			int b = 0;
+			out.write("HELO ".getBytes());
 			while (b != (int) '\n') {
 				b = in.read();
 				out.write(b);
@@ -40,7 +41,7 @@ public class Server {
 			int port = listenSock.getLocalPort();
 			outStr.printf("IP:%s\nPort:%d\nStudentID:%s\n", serverIp, port, STUDENT_ID);
 			outStr.flush(); //all at once
-			outStr.close();
+			//outStr.close();
 		}
 	};
 
@@ -55,34 +56,41 @@ public class Server {
 
 		public void run() {
 			System.out.println("strted thread with socket " + sock.toString());
-
 			try {
 				sock.setSoTimeout(Server.RESP_TIMEOUT);
 				in = sock.getInputStream();
 				out = sock.getOutputStream();
 
-				try {
-					if (Server.this.respond(sock, in, out)) {
-						System.out.println("successful handling of " + sock);
+				while (true) {
+					try {
+						if (Server.this.respond(sock, in, out)) {
+							System.out.println("successful handling of " + sock);
+						}
+						else {
+							System.out.println("bad command from " + sock);
+							break;
+						}
+						out.flush();
 					}
-					else {
-						System.out.println("bad command from " + sock);
+					catch(SocketTimeoutException e) {
+						System.out.println("socket " + sock.toString() + " timeout");
+						e.printStackTrace();
+						break;
 					}
-				}	
-				catch(SocketTimeoutException e) {
-					System.out.println("socket " + sock.toString() + " timeout");
 				}
 
-				in.close();
-				out.close();
-				sock.close();
-				System.out.println("socket " + sock.toString() + " thread ended gracefully");
+				//in.close();
+				//out.close();
+				//sock.close();
+				//System.out.println("socket " + sock.toString() + " thread ended gracefully");
 			}
 			catch(SocketTimeoutException e) {
 				System.out.println("socket " + sock.toString() + " timeout");
+				e.printStackTrace();
 			}
 			catch(SocketException e) {
 				System.out.println("socket " + sock.toString() + " error " + e.toString());
+				e.printStackTrace();
 			}
 			catch(IOException e) {
 				System.out.println("socket " + sock.toString() + " io error " + e.toString());
@@ -124,7 +132,7 @@ public class Server {
 		//stop at the first match
 	
 		CommandTrie.TrieMatcher match = commandTrie.matcher();
-		while (match.advance((byte)in.read()));
+		while (match.advance((byte)in.read());
 		if (match.isDone()) {
 			byte[] cmd = match.getMatched();
 			String key = new String(cmd);
@@ -132,6 +140,7 @@ public class Server {
 			assert(resp != null);
 			
 			//call callback
+			System.out.println("got command " + key);
 			resp.response(sock, in, out);
 			return true;
 		}
