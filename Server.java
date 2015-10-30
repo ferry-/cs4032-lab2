@@ -6,6 +6,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.net.SocketException;
+import java.net.InetAddress;
 import java.io.*;
 import java.lang.Runnable;
 
@@ -28,19 +29,19 @@ public class Server {
 			System.out.println("HELO from " + sock);
 			//read message
 			int b = 0;
-			out.write("HELO ".getBytes());
-			while (b != (int) '\n') {
+			String msg = "";
+			do {
 				b = in.read();
-				out.write(b);
-			}
+				if (b == -1) continue;
+				msg = msg + ((char)b);
+			} while (b != (int) '\n');
+			System.out.println();
 
 			//now write the ip-port-studentid
-			PrintStream outStr = new PrintStream(out); //autoflush OFF
-			String serverIp = listenSock.getInetAddress().getHostAddress();
+			String serverIp = sock.getLocalAddress().toString().substring(1);
 			int port = listenSock.getLocalPort();
-			outStr.printf("IP:%s\nPort:%d\nStudentID:%s\n", serverIp, port, STUDENT_ID);
-			outStr.flush(); //all at once
-			//outStr.close();
+			String s = String.format("HELO %sIP:%s\nPort:%d\nStudentID:%s\n", msg, serverIp, port, STUDENT_ID);
+			out.write(s.getBytes());
 		}
 	};
 
@@ -67,8 +68,6 @@ public class Server {
 						}
 						else {
 							System.out.println("bad command from " + sock);
-							out.write("bad command".getBytes());
-							break;
 						}
 						out.flush();
 					}
@@ -109,7 +108,7 @@ public class Server {
 
 	public Server() {
 		//add standard handlers
-		addResponse("KILL_SERVER\n", killServerResponder);
+		addResponse("KILL_SERVICE\n", killServerResponder);
 		addResponse("HELO ", heloServerResponder);
 	}
 
@@ -133,11 +132,13 @@ public class Server {
 		//stop at the first match
 	
 		CommandTrie.TrieMatcher match = commandTrie.matcher();
+		String got = "";
+		byte b = 0;
 		while (true) {
-			byte b = (byte)in.read();
-			System.out.println("got 0x" + Integer.toHexString(b));
+			b = (byte)in.read();
+			if (b == -1) continue;
+			got += (char)b;
 			if (!match.advance(b)) {
-				System.out.println("finished");
 				break;
 			}
 		}
@@ -154,6 +155,12 @@ public class Server {
 		}
 		else {
 			//couldn't match any commands
+			while (b != '\n') {
+				if (b == -1) continue;
+				b = (byte)in.read();
+			}
+
+			System.out.println("got bad command " + got);
 			return false;
 		}
 	}
@@ -162,7 +169,9 @@ public class Server {
 		try {
 			pool = Executors.newFixedThreadPool(threads);
 			listenSock = new ServerSocket(port, backlog);
-			
+
+			//InetAddress IP = InetAddress.getLocalHost();
+		
 
 			//make it possible to check the shutdown flag while waiting for connections
 			listenSock.setSoTimeout(50);		
