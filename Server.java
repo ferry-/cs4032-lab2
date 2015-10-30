@@ -10,7 +10,6 @@ import java.io.*;
 import java.lang.Runnable;
 
 public class Server {
-	protected static int RESP_TIMEOUT = 5000;
 	protected static String STUDENT_ID = "ed9d356567882c76a5e1ab4e224a3c50d80fb962838dc52afd5e5e20a7f5817e";
 	
 	public abstract class Response {
@@ -57,7 +56,7 @@ public class Server {
 		public void run() {
 			System.out.println("strted thread with socket " + sock.toString());
 			try {
-				sock.setSoTimeout(Server.RESP_TIMEOUT);
+				sock.setSoTimeout(100); //ms
 				in = sock.getInputStream();
 				out = sock.getOutputStream();
 
@@ -68,24 +67,26 @@ public class Server {
 						}
 						else {
 							System.out.println("bad command from " + sock);
+							out.write("bad command".getBytes());
 							break;
 						}
 						out.flush();
 					}
 					catch(SocketTimeoutException e) {
-						System.out.println("socket " + sock.toString() + " timeout");
-						e.printStackTrace();
-						break;
+						if (Server.this.shutdown) {
+							break;
+						}
 					}
 				}
 
-				//in.close();
-				//out.close();
-				//sock.close();
-				//System.out.println("socket " + sock.toString() + " thread ended gracefully");
+				out.flush();
+				in.close();
+				out.close();
+				sock.close();
+				System.out.println("socket " + sock.toString() + " thread ended gracefully");
 			}
 			catch(SocketTimeoutException e) {
-				System.out.println("socket " + sock.toString() + " timeout");
+				System.out.println("socket " + sock.toString() + " outer timeout");
 				e.printStackTrace();
 			}
 			catch(SocketException e) {
@@ -132,7 +133,14 @@ public class Server {
 		//stop at the first match
 	
 		CommandTrie.TrieMatcher match = commandTrie.matcher();
-		while (match.advance((byte)in.read());
+		while (true) {
+			byte b = (byte)in.read();
+			System.out.println("got 0x" + Integer.toHexString(b));
+			if (!match.advance(b)) {
+				System.out.println("finished");
+				break;
+			}
+		}
 		if (match.isDone()) {
 			byte[] cmd = match.getMatched();
 			String key = new String(cmd);
@@ -161,6 +169,7 @@ public class Server {
 
 			while (true) {
 				if (shutdown) {
+					System.out.println("main thread: shutdown");
 					break;
 				}
 				
